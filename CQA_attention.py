@@ -157,6 +157,7 @@ def CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, dropout=0.0):
     '''
     :param c: context, shape = (batch_size, context_max_sentence_length, vector_length)  e.g.(32, 80, 50)
     :param q: question, shape = (batch_size, question_max_sentence_length, vector_length)  e.g.(32, 40, 50)
+    :param N: int, batch_size
     :param c_maxlen: int, max_sentence_length of context
     :param q_maxlen: int, max_sentence_length of question
     :return: attention tensor, shape = (batch_size, context_max_sentence_length, 4*vector_length)   e.g.(32, 80, 200)
