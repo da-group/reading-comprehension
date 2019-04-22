@@ -3,7 +3,7 @@ import json
 import numpy as np
 
 train_file = 'splitv2/train.json'
-fname = 'embedding.json'
+fname = 'embedding'
 e_file = 'glove.6B.50d.txt'
 
 def get_embedding(word_file, emb_file, vec_size, part):
@@ -37,7 +37,7 @@ def get_embedding(word_file, emb_file, vec_size, part):
     return emb_mat, token2idx_dict
 
 def save_file(name, d, part):
-    name = name + '_' + part
+    name = name + '_' + part + '.json'
     with open(name, 'w') as wf:
         json.dump(d, wf)
 
