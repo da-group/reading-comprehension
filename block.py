@@ -5,6 +5,7 @@
 
 import tensorflow as tf
 import numpy as np
+import math
 
 def conv_layer(parent, kernel_size, output_channel, stride, name, bias = True, relu = False, reuse=True):
     '''
@@ -109,9 +110,9 @@ def layer_dropout(inputs, residual, dropout):
     return tf.cond(pred, lambda: residual, lambda: tf.nn.dropout(inputs, 1.0 - dropout) + residual)
 
 def mask_layer(parent, mask, mod):
-    mask = tf.cast(mask, tf.float32)
-    if mask==None:
+    if not mask:
         return parent
+    mask = tf.cast(mask, tf.float32)
     if mod=='mul':
         return parent*mask
     elif mod=='add':
@@ -144,7 +145,7 @@ def multihead_attention(parent, num_head, size_per_head, name, mask=None, bias=T
 def self_attention_layer(parent, kernel_size, output_channel, stride, num_head, size_per_head, name, mask=None, dropout=0.0, reuse=True):
     with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
         bn_1 = layer_norm(parent, 'bn_1')
-        attention = multihead_attention(bn_1, num_head, size_per_head, 'multi_attention', mask, reuse=tf.AUTO_REUSE)
+        attention = multihead_attention(bn_1, num_head, size_per_head, 'multi_attention', mask=mask, reuse=tf.AUTO_REUSE)
         residual = layer_dropout(attention, bn_1, dropout)
 
         bn_2 = layer_norm(residual, 'bn_2', reuse=tf.AUTO_REUSE)
@@ -153,8 +154,23 @@ def self_attention_layer(parent, kernel_size, output_channel, stride, num_head, 
         output = layer_dropout(conv_2, parent, dropout)
         return output
 
-def add_timing_signal(parent):
-    return parent
+def add_timing_signal(parent, min_timescale=1.0, max_timescale=1.0e4):
+    N, L, C = parent.shape.as_list()
+    return parent+get_timing_signal(L, C, min_timescale, max_timescale)
+
+def get_timing_signal(length, channels, min_timescale=1.0, max_timescale=1.0e4):
+    position = tf.to_float(tf.range(length))
+    num_timescales = channels // 2
+    log_timescale_increment = (
+        math.log(float(max_timescale) / float(min_timescale)) /
+            (tf.to_float(num_timescales) - 1))
+    inv_timescales = min_timescale * tf.exp(
+        tf.to_float(tf.range(num_timescales)) * -log_timescale_increment)
+    scaled_time = tf.expand_dims(position, 1) * tf.expand_dims(inv_timescales, 0)
+    signal = tf.concat([tf.sin(scaled_time), tf.cos(scaled_time)], axis=1)
+    signal = tf.pad(signal, [[0, 0], [0, tf.mod(channels, 2)]])
+    signal = tf.reshape(signal, [1, length, channels])
+    return signal
 
 def encoder_block(parent, num_blocks, num_conv_layers,
                   kernel_size, stride, num_d, num_p, output_channel,
@@ -167,7 +183,8 @@ def encoder_block(parent, num_blocks, num_conv_layers,
         for i in range(num_blocks):
             output = add_timing_signal(output)
             output = depthwise_conv_block(output, num_conv_layers, kernel_size, stride, num_d, num_p, 'conv_'+np.str(i))
-            output = self_attention_layer(output, kernel_size, output_channel, stride, num_head, size_per_head, 'attention_'+np.str(i), dropout)
+            output = self_attention_layer(output, kernel_size, output_channel, stride, num_head, size_per_head, 'attention_'+np.str(i),
+                                          mask=mask, dropout=dropout)
         return output
 
 
