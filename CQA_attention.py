@@ -201,7 +201,7 @@ def CQA_attention(c, q, a, N, c_maxlen, q_maxlen, a_maxlen, dropout=0.0):
     '''
     cq_atten_outputs = CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, dropout=0.0)
     # e.g. cq_atten_outputs.shape = (32, 80, 200)
-    # # use conv_layer to transform above shape(32, 80, 200) to shape(32, 80, 50) as following input
+    # use conv_layer to transform above shape(32, 80, 200) to shape(32, 80, 50) as following input
     cq_outputs = conv_layer(cq_atten_outputs, 1, c.shape[2], 1, 'cq_transform')
     cqa_atten_outputs = CQ_attention_layer(cq_outputs, a, N, c_maxlen, a_maxlen, dropout=0.0)
     return cqa_atten_outputs
