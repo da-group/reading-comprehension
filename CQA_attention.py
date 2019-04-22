@@ -187,19 +187,34 @@ def CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, dropout=0.0):
 
 
 
+# Compute the attention between Context, Question and Answer
+def CQA_attention(c, q, a, N, c_maxlen, q_maxlen, a_maxlen, dropout=0.0):
+    '''
+    : param c: context, shape = (batch_size, context_max_sentence_length, vector_length)  e.g.(32, 80, 50)
+    : param q: question, shape = (batch_size, question_max_sentence_length, vector_length)  e.g.(32, 40, 50)
+    : param a: answer, shape = (batch_size, answer_max_sentence_length, vector_length)  e.g.(32, 20, 50)
+    : param N: int, batch_size
+    : param c_maxlen: int, max_sentence_length of context
+    : param q_maxlen: int, max_sentence_length of question
+    : param a_maxlen: int, max_sentence_length of answer
+    : return: attention tensor, shape = (batch_size, context_max_sentence_length, 4*vector_length)   e.g.(32, 80, 200)
+    '''
+    cq_atten_outputs = CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, dropout=0.0)
+    # e.g. cq_atten_outputs.shape = (32, 80, 200)
+    # # use conv_layer to transform above shape(32, 80, 200) to shape(32, 80, 50) as following input
+    cq_outputs = conv_layer(cq_atten_outputs, 1, c.shape[2], 1, 'cq_transform')
+    cqa_atten_outputs = CQ_attention_layer(cq_outputs, a, N, c_maxlen, a_maxlen, dropout=0.0)
+    return cqa_atten_outputs
+
+
 #=======================TEST=============================
-c = tf.constant(np.random.rand(32, 400, 96), dtype=tf.float32)
-q = tf.constant(np.random.rand(32, 50, 96), dtype=tf.float32)
-a = tf.constant(np.random.rand(32, 20, 96), dtype=tf.float32)
-c_maxlen = 400
-q_maxlen = 50
-a_maxlen = 20
-N = 32
+if __name__ == '__main__':
+    c = tf.constant(np.random.rand(32, 400, 96), dtype=tf.float32)
+    q = tf.constant(np.random.rand(32, 50, 96), dtype=tf.float32)
+    a = tf.constant(np.random.rand(32, 20, 96), dtype=tf.float32)
+    c_maxlen = 400
+    q_maxlen = 50
+    a_maxlen = 20
+    N = 32
 
-cq_atten_outputs = CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, dropout=0.0)
-# cq_atten_outputs.shape = (32,400,384)
-# use conv_layer to transform shape(32, 400, 384) to shape(32, 400, 96) as input
-cq_outputs = conv_layer(cq_atten_outputs, 1, c.shape[2], 1, 'cq_transform')
-cqa_atten_outputs = CQ_attention_layer(cq_outputs, a, N, c_maxlen, a_maxlen, dropout=0.0)
-
-print(cqa_atten_outputs.shape)
+    print(CQA_attention(c, q, a, N, c_maxlen, q_maxlen, a_maxlen, dropout=0.0).shape)
