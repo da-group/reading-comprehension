@@ -1,3 +1,5 @@
+# This script is modified from https://github.com/NLPLearn/QANet/blob/master/model.py and https://github.com/NLPLearn/QANet/blob/master/layers.py
+
 import tensorflow as tf
 from tensorflow.python.ops import nn_ops
 from tensorflow.keras import backend as K
@@ -5,10 +7,18 @@ import numpy as np
 from block import conv_layer
 tf.enable_eager_execution()
 
-def initializer(): return tf.contrib.layers.variance_scaling_initializer(factor=1.0, mode='FAN_AVG', uniform=True, dtype=tf.float32)
 regularizer = tf.contrib.layers.l2_regularizer(scale=3e-7)
 
-def mask_logits(inputs, mask, mask_value=-1e30):
+def initializer():
+    '''
+    Copy from https://github.com/NLPLearn/QANet/blob/master/layers.py
+    '''
+    return tf.contrib.layers.variance_scaling_initializer(factor=1.0, mode='FAN_AVG', uniform=True, dtype=tf.float32)
+
+def mask_logits(inputs, mask, mask_value= -1e30):
+    '''
+    Copy from https://github.com/NLPLearn/QANet/blob/master/layers.py
+    '''
     shapes = inputs.shape.as_list()
     mask = tf.cast(mask, tf.float32)
     return inputs + mask_value * (1 - mask)
@@ -112,6 +122,9 @@ def optimized_trilinear_for_attention(args, c_maxlen, q_maxlen, input_keep_prob=
                                       scope='efficient_trilinear',
                                       bias_initializer=tf.zeros_initializer(),
                                       kernel_initializer=initializer()):
+    '''
+    Copy from https://github.com/NLPLearn/QANet/blob/master/layers.py
+    '''
     assert len(args) == 2, "just use for computing attention with two input"
     arg0_shape = args[0].get_shape().as_list()
     arg1_shape = args[1].get_shape().as_list()
@@ -155,6 +168,7 @@ def optimized_trilinear_for_attention(args, c_maxlen, q_maxlen, input_keep_prob=
 
 def CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, dropout=0.0):
     '''
+    Modified from https://github.com/NLPLearn/QANet/blob/master/model.py
     :param c: context, shape = (batch_size, context_max_sentence_length, vector_length)  e.g.(32, 80, 50)
     :param q: question, shape = (batch_size, question_max_sentence_length, vector_length)  e.g.(32, 40, 50)
     :param N: int, batch_size
