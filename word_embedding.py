@@ -10,9 +10,14 @@ def get_embedding(word_file, emb_file, vec_size, part):
     words = json.load(open(word_file, 'r'))
     embedding_dict = {}
     word_counter = Counter()
+    low_sentence = []
 
     for sentence in words[part]:
-        word_counter += Counter(sentence)
+        for word in sentence:
+            lw = word.lower()
+            low_sentence.append(lw)
+        word_counter += Counter(low_sentence)
+        low_sentence = []
 
     elements = [k for k in word_counter.keys()]
     with open(emb_file, 'r', encoding='utf-8') as ef:
@@ -44,5 +49,6 @@ def save_file(name, d, part):
 if __name__ == '__main__' :
     parts = ['contexts', 'questions', 'answers']
     for part in parts:
-        mat, _ = get_embedding(train_file, e_file, 50, part)
+        mat, dic = get_embedding(train_file, e_file, 50, part)
         save_file(fname, mat, part)
+        save_file('dict', dic, part)
