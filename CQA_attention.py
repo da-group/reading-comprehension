@@ -195,9 +195,9 @@ def CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, scope, dropout=0.0):
 
         c2q = tf.matmul(S_, q)
         q2c = tf.matmul(tf.matmul(S_, S_T), c)
-        attention_outputs = [c, c2q, c * c2q, c * q2c]
-        #return attention_outputs
-        return tf.concat(attention_outputs, axis=-1)
+        # attention_outputs = [c, c2q, c * c2q, c * q2c]
+        return c, c2q, c * c2q, c * q2c
+
 
 
 
@@ -213,12 +213,21 @@ def CQA_attention(c, q, a, N, output_channel, c_maxlen, q_maxlen, a_maxlen, drop
     : param a_maxlen: int, max_sentence_length of answer
     : return: attention tensor, shape = (batch_size, context_max_sentence_length, 4*vector_length)   e.g.(32, 80, 200)
     '''
-    cq_atten_outputs = CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, scope = 'CQ_attention', dropout=0.0)
+    # cq_atten_outputs = CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, scope = 'CQ_attention', dropout=0.0)
+    # # e.g. cq_atten_outputs.shape = (32, 80, 200)
+    # # use conv_layer to transform above shape(32, 80, 200) to shape(32, 80, 50) as following input
+    # cq_outputs = conv_layer(cq_atten_outputs, 1, c.shape[2], 1, 'cq_transform')
+    # cqa_atten_outputs = CQ_attention_layer(cq_outputs, a, N, c_maxlen, a_maxlen, scope='CQA_attention', dropout=0.0)
+    # outputs = conv_layer(cqa_atten_outputs, 1, output_channel, 1, 'cqa_output')
+    # return outputs
+
+    c, c2q, c_c2q, c_q2c = CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, scope='CQ_attention', dropout=0.0)
     # e.g. cq_atten_outputs.shape = (32, 80, 200)
     # use conv_layer to transform above shape(32, 80, 200) to shape(32, 80, 50) as following input
-    cq_outputs = conv_layer(cq_atten_outputs, 1, c.shape[2], 1, 'cq_transform')
-    cqa_atten_outputs = CQ_attention_layer(cq_outputs, a, N, c_maxlen, a_maxlen, scope='CQA_attention', dropout=0.0)
-    outputs = conv_layer(cqa_atten_outputs, 1, output_channel, 1, 'cqa_output')
+    c, c2a, c_c2a, c_a2c = CQ_attention_layer(c, a, N, c_maxlen, a_maxlen, scope='CA_attention', dropout=0.0)
+    attention_outputs = [c, c2q, c2a, c_c2q, c_q2c, c_c2a, c_a2c]
+    attention_outputs = tf.concat(attention_outputs, axis=-1)
+    outputs = conv_layer(attention_outputs, 1, output_channel, 1, 'cqa_output')
     return outputs
 
 
@@ -237,3 +246,4 @@ if __name__ == '__main__':
         N = 32
 
         print(CQA_attention(c, q, a, N, 50, c_maxlen, q_maxlen, a_maxlen, dropout=0.0).shape)
+
