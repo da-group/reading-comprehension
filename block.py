@@ -34,8 +34,10 @@ def conv_layer(parent, kernel_size, output_channel, stride, name, bias = True, r
 def depthwise_conv_layer(parent, kernel_size, num_d, num_p, stride, name, bias=True, relu=False, reuse=True):
     with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
         N, H, W, C = parent.shape.as_list()
+        kh = kernel_size if H!=1 else 1
+        kw = kernel_size if W!=1 else 1
         initializer = tf.contrib.layers.xavier_initializer(dtype=tf.float32)
-        depthwise_filter = tf.get_variable('depthwise_weights', [kernel_size, kernel_size, C, num_d], dtype=tf.float32, initializer=initializer)
+        depthwise_filter = tf.get_variable('depthwise_weights', [kh, kw, C, num_d], dtype=tf.float32, initializer=initializer)
         pointwise_filter = tf.get_variable('pointwise_weights', [1, 1, num_d*C, num_p], dtype=tf.float32, initializer=initializer)
         output = tf.nn.separable_conv2d(parent, depthwise_filter, pointwise_filter, strides=[1, stride, stride, 1], padding='SAME')
         if bias:
@@ -57,7 +59,7 @@ def depthwise_conv_block(parent, num_layers, kernel_size, stride, num_d, num_p, 
         for i in range(num_layers):
             bn = layer_norm(output, 'bn_'+np.str(i+1))
             relu = True if i<num_layers-1 else False
-            conv = depthwise_conv_layer(bn, kernel_size, num_d, num_p, stride, 'dconv_'+np.str(i), relu=relu, reuse=tf.AUTO_REUSE)
+            conv = depthwise_conv_layer(bn, kernel_size, num_d, num_p, stride, 'dconv_'+np.str(i), relu=relu)
             output = layer_dropout(conv, output, dropout)
         output = tf.squeeze(output, 2)
         return output
@@ -176,6 +178,9 @@ def encoder_block(parent, num_blocks, num_conv_layers,
                   reuse=True):
     with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
         output = parent
+        C = parent.shape.as_list()[-1]
+        if (C!=output_channel):
+            output = conv_layer(output, 1, output_channel, 1, 'project')
         for i in range(num_blocks):
             output = add_timing_signal(output)
             output = depthwise_conv_block(output, num_conv_layers, kernel_size, stride, num_d, num_p, 'conv_'+np.str(i))
@@ -193,9 +198,9 @@ if __name__ == '__main__':
                            num_conv_layers=3,
                            kernel_size=3,
                            stride=1,
-                           num_d=128,
-                           num_p=50,
-                           output_channel=50,
+                           num_d=1,
+                           num_p=128,
+                           output_channel=128,
                            num_head=8,
                            size_per_head=32,
                            dropout=0.1,
