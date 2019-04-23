@@ -5,7 +5,7 @@ from tensorflow.python.ops import nn_ops
 from tensorflow.keras import backend as K
 import numpy as np
 from block import conv_layer
-tf.enable_eager_execution()
+# tf.enable_eager_execution()
 
 regularizer = tf.contrib.layers.l2_regularizer(scale=3e-7)
 
@@ -166,7 +166,7 @@ def optimized_trilinear_for_attention(args, c_maxlen, q_maxlen, input_keep_prob=
         return res
 
 
-def CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, dropout=0.0):
+def CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, scope, dropout=0.0):
     '''
     Modified from https://github.com/NLPLearn/QANet/blob/master/model.py
     :param c: context, shape = (batch_size, context_max_sentence_length, vector_length)  e.g.(32, 80, 50)
@@ -176,7 +176,7 @@ def CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, dropout=0.0):
     :param q_maxlen: int, max_sentence_length of question
     :return: attention tensor, shape = (batch_size, context_max_sentence_length, 4*vector_length)   e.g.(32, 80, 200)
     '''
-    with tf.variable_scope("Context_to_Query_Attention_Layer"):
+    with tf.variable_scope(scope):
         # c_mask = tf.cast(c, tf.bool)
         # c_mask = tf.slice(c_mask, [0, 0], [N, c_maxlen])
         # mask_c = tf.expand_dims(c_mask, 2)
@@ -213,23 +213,27 @@ def CQA_attention(c, q, a, N, output_channel, c_maxlen, q_maxlen, a_maxlen, drop
     : param a_maxlen: int, max_sentence_length of answer
     : return: attention tensor, shape = (batch_size, context_max_sentence_length, 4*vector_length)   e.g.(32, 80, 200)
     '''
-    cq_atten_outputs = CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, dropout=0.0)
+    cq_atten_outputs = CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, scope = 'CQ_attention', dropout=0.0)
     # e.g. cq_atten_outputs.shape = (32, 80, 200)
     # use conv_layer to transform above shape(32, 80, 200) to shape(32, 80, 50) as following input
     cq_outputs = conv_layer(cq_atten_outputs, 1, c.shape[2], 1, 'cq_transform')
-    cqa_atten_outputs = CQ_attention_layer(cq_outputs, a, N, c_maxlen, a_maxlen, dropout=0.0)
+    cqa_atten_outputs = CQ_attention_layer(cq_outputs, a, N, c_maxlen, a_maxlen, scope='CQA_attention', dropout=0.0)
     outputs = conv_layer(cqa_atten_outputs, 1, output_channel, 1, 'cqa_output')
     return outputs
 
 
 #=======================TEST=============================
 if __name__ == '__main__':
-    c = tf.constant(np.random.rand(32, 400, 96), dtype=tf.float32)
-    q = tf.constant(np.random.rand(32, 50, 96), dtype=tf.float32)
-    a = tf.constant(np.random.rand(32, 20, 96), dtype=tf.float32)
-    c_maxlen = 400
-    q_maxlen = 50
-    a_maxlen = 20
-    N = 32
+    with tf.Session():
+        c = tf.placeholder(dtype=tf.float32, shape=[32, 400, 96], name='c')
+        q = tf.placeholder(dtype=tf.float32, shape=[32, 50, 96], name='c')
+        a = tf.placeholder(dtype=tf.float32, shape=[32, 20, 96], name='c')
+        # c = tf.constant(np.random.rand(32, 400, 96), dtype=tf.float32)
+        # q = tf.constant(np.random.rand(32, 50, 96), dtype=tf.float32)
+        # a = tf.constant(np.random.rand(32, 20, 96), dtype=tf.float32)
+        c_maxlen = 400
+        q_maxlen = 50
+        a_maxlen = 20
+        N = 32
 
-    print(CQA_attention(c, q, a, N, 50, c_maxlen, q_maxlen, a_maxlen, dropout=0.0).shape)
+        print(CQA_attention(c, q, a, N, 50, c_maxlen, q_maxlen, a_maxlen, dropout=0.0).shape)
