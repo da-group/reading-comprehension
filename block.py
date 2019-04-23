@@ -64,15 +64,11 @@ def depthwise_conv_block(parent, num_layers, kernel_size, stride, num_d, num_p, 
 
 def fc_layer(parent, output_channel, name, bias = True, relu = False, reuse=True):
     with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
-        shape = parent.shape.as_list()
+        shape = parent.shape
         C = shape[-1]
-        if len(shape)>=3:
-            parent = tf.reshape(parent, [-1, C])
         init = tf.contrib.layers.xavier_initializer_conv2d(dtype = tf.float32)
         weights = tf.get_variable(name = 'weights', shape = [C, output_channel], dtype = 'float32', initializer = init)
         fc = tf.matmul(parent, weights)
-        if len(shape)>=3:
-            fc = tf.reshape(fc, shape[:-1]+[output_channel])
         if bias:
             bias = tf.get_variable(name = 'bias', shape = [output_channel], dtype = 'float32', initializer = init)
             fc_with_bias = tf.nn.bias_add(fc, bias)
@@ -121,13 +117,13 @@ def mask_layer(parent, mask, mod):
 def multihead_attention(parent, num_head, size_per_head, name, mask=None, bias=True, reuse=True):
     with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
         N, L, C = parent.shape.as_list()
-        q = fc_layer(parent, num_head*size_per_head, 'q', bias=False)
+        q = conv_layer(parent, 1, num_head*size_per_head, 1, 'q')
         q = tf.reshape(q, (-1, L, num_head, size_per_head))
         q = tf.transpose(q, [0, 2, 1, 3])
-        v = fc_layer(parent, num_head*size_per_head, 'v', bias=False)
+        v = conv_layer(parent, 1, num_head*size_per_head, 1, 'v')
         v = tf.reshape(v, (-1, L, num_head, size_per_head))
         v = tf.transpose(v, [0, 2, 1, 3])
-        k = fc_layer(parent, num_head*size_per_head, 'k', bias=False)
+        k = conv_layer(parent, 1, num_head*size_per_head, 1, 'k')
         k = tf.reshape(k, (-1, L, num_head, size_per_head))
         k = tf.transpose(k, [0, 2, 1, 3])
         score = tf.matmul(q, k, transpose_b=True)/tf.sqrt((float(size_per_head)))
@@ -138,8 +134,8 @@ def multihead_attention(parent, num_head, size_per_head, name, mask=None, bias=T
         score = tf.nn.softmax(score)
         output = tf.matmul(score, v)
         output = tf.transpose(output, [0, 2, 1, 3])
-        output = tf.reshape(output, [N, L, num_head*size_per_head])
-        output = fc_layer(output, C, 'fc', relu=True)
+        output = tf.reshape(output, [-1, L, num_head*size_per_head])
+        output = conv_layer(output, 1, C, 1, 'reshape')
         return mask_layer(output, mask, 'mul')
 
 def self_attention_layer(parent, kernel_size, output_channel, stride, num_head, size_per_head, name, mask=None, dropout=0.0, reuse=True):
@@ -191,7 +187,8 @@ def encoder_block(parent, num_blocks, num_conv_layers,
 
 if __name__ == '__main__':
     t = tf.constant(np.random.rand(10, 20, 50), dtype=tf.float32)
-    output = encoder_block(t,
+    p = tf.placeholder(tf.float32, [None, 20, 50], 'p')
+    output = encoder_block(p,
                            num_blocks=2,
                            num_conv_layers=3,
                            kernel_size=3,
