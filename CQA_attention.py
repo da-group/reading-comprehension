@@ -202,7 +202,7 @@ def CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, dropout=0.0):
 
 
 # Compute the attention between Context, Question and Answer
-def CQA_attention(c, q, a, N, c_maxlen, q_maxlen, a_maxlen, dropout=0.0):
+def CQA_attention(c, q, a, N, output_channel, c_maxlen, q_maxlen, a_maxlen, dropout=0.0):
     '''
     : param c: context, shape = (batch_size, context_max_sentence_length, vector_length)  e.g.(32, 80, 50)
     : param q: question, shape = (batch_size, question_max_sentence_length, vector_length)  e.g.(32, 40, 50)
@@ -218,7 +218,8 @@ def CQA_attention(c, q, a, N, c_maxlen, q_maxlen, a_maxlen, dropout=0.0):
     # use conv_layer to transform above shape(32, 80, 200) to shape(32, 80, 50) as following input
     cq_outputs = conv_layer(cq_atten_outputs, 1, c.shape[2], 1, 'cq_transform')
     cqa_atten_outputs = CQ_attention_layer(cq_outputs, a, N, c_maxlen, a_maxlen, dropout=0.0)
-    return cqa_atten_outputs
+    outputs = conv_layer(cqa_atten_outputs, 1, output_channel, 1, 'cqa_output')
+    return outputs
 
 
 #=======================TEST=============================
@@ -231,4 +232,4 @@ if __name__ == '__main__':
     a_maxlen = 20
     N = 32
 
-    print(CQA_attention(c, q, a, N, c_maxlen, q_maxlen, a_maxlen, dropout=0.0).shape)
+    print(CQA_attention(c, q, a, N, 50, c_maxlen, q_maxlen, a_maxlen, dropout=0.0).shape)
