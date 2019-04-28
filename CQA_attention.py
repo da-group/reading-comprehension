@@ -196,7 +196,7 @@ def CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, scope, dropout=0.0):
         c2q = tf.matmul(S_, q)
         q2c = tf.matmul(tf.matmul(S_, S_T), c)
         # attention_outputs = [c, c2q, c * c2q, c * q2c]
-        return c, c2q, c * c2q, c * q2c
+        return c2q, c * c2q, c * q2c
 
 
 
@@ -221,15 +221,23 @@ def CQA_attention(c, q, a, N, output_channel, c_maxlen, q_maxlen, a_maxlen, drop
     # outputs = conv_layer(cqa_atten_outputs, 1, output_channel, 1, 'cqa_output')
     # return outputs
 
-    c, c2q, c_c2q, c_q2c = CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, scope='CQ_attention', dropout=0.0)
+    c2q, c_c2q, c_q2c = CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, scope='CQ_attention', dropout=dropout)
     # e.g. cq_atten_outputs.shape = (32, 80, 200)
     # use conv_layer to transform above shape(32, 80, 200) to shape(32, 80, 50) as following input
-    c, c2a, c_c2a, c_a2c = CQ_attention_layer(c, a, N, c_maxlen, a_maxlen, scope='CA_attention', dropout=0.0)
+    c2a, c_c2a, c_a2c = CQ_attention_layer(c, a, N, c_maxlen, a_maxlen, scope='CA_attention', dropout=dropout)
     attention_outputs = [c, c2q, c2a, c_c2q, c_q2c, c_c2a, c_a2c]
     attention_outputs = tf.concat(attention_outputs, axis=-1)
     outputs = conv_layer(attention_outputs, 1, output_channel, 1, 'cqa_output')
     return outputs
 
+
+def CQA_attention_v2(c, q, a, N, output_channel, c_maxlen, q_maxlen, a_maxlen, dropout=0.0):
+    c2q, c_c2q, c_q2c = CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, scope='CQ_attention', dropout=dropout)
+    a2c, a_a2c, a_c2a = CQ_attention_layer(a, c, N, a_maxlen, c_maxlen, scope='AC_attention', dropout=dropout)
+    attention_output = [a, a2c, a_a2c, a_c2a]
+    attention_output = tf.concat(attention_output, axis=-1)
+    output = conv_layer(attention_output, 1, output_channel, 1, 'cqa_output')
+    return output
 
 #=======================TEST=============================
 if __name__ == '__main__':
@@ -245,5 +253,6 @@ if __name__ == '__main__':
         a_maxlen = 20
         N = 32
 
-        print(CQA_attention(c, q, a, N, 50, c_maxlen, q_maxlen, a_maxlen, dropout=0.0).shape)
+        CQA_attention_v2(c, q, a, N, 50, c_maxlen, q_maxlen, a_maxlen, 0.3)
+
 
