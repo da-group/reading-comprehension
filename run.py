@@ -70,6 +70,21 @@ if __name__ == '__main__':
 
     output = CQA_attention.CQA_attention_v2(encoder_context, encoder_question, encoder_answer, batch_size,
                                          c_maxlen=c_len, q_maxlen=q_len, a_maxlen=a_len, c_mask=context_mask, q_mask=question_mask, a_mask=answer_mask, output_channel=50)
+
+
+    output = block.encoder_block(output, num_blocks=2,
+                           num_conv_layers=2,
+                           kernel_size=7,
+                           stride=1,
+                           num_d=1,
+                           num_p=50,
+                           output_channel=50,
+                           num_head=8,
+                           size_per_head=32,
+                           dropout=0.3,
+                           name='answer',
+                           mask = answer_mask)
+
     flatted = tf.layers.flatten(output)
 
     res = block.fc_layer(flatted, 512, 'fc1', relu=True)
