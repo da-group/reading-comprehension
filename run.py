@@ -25,6 +25,10 @@ if __name__ == '__main__':
     input_answer = tf.placeholder(tf.float32, [batch_size, a_len, 50])
     y_hat = tf.placeholder(tf.float32, [None, 2])
 
+    context_mask = tf.cast(tf.reduce_sum(input_context, -1), tf.bool)
+    question_mask = tf.cast(tf.reduce_sum(input_question, -1), tf.bool)
+    answer_mask = tf.cast(tf.reduce_sum(input_answer, -1), tf.bool)
+
     encoder_context = block.encoder_block(input_context, num_blocks=2,
                            num_conv_layers=2,
                            kernel_size=7,
@@ -35,7 +39,8 @@ if __name__ == '__main__':
                            num_head=8,
                            size_per_head=32,
                            dropout=0.3,
-                           name='context')
+                           name='context',
+                           mask = context_mask)
 
     encoder_question =block.encoder_block(input_question, num_blocks=2,
                            num_conv_layers=2,
@@ -47,7 +52,8 @@ if __name__ == '__main__':
                            num_head=8,
                            size_per_head=32,
                            dropout=0.3,
-                           name='question')
+                           name='question',
+                           mask = question_mask)
 
     encoder_answer = block.encoder_block(input_answer, num_blocks=2,
                            num_conv_layers=2,
@@ -59,14 +65,15 @@ if __name__ == '__main__':
                            num_head=8,
                            size_per_head=32,
                            dropout=0.3,
-                           name='answer')
+                           name='answer',
+                           mask = answer_mask)
 
-    output = CQA_attention.CQA_attention(encoder_answer, encoder_question, encoder_context, batch_size,
+    output = CQA_attention.CQA_attention(encoder_context, encoder_question, encoder_answer, batch_size,
                                          c_maxlen=c_len, q_maxlen=q_len, a_maxlen=a_len, output_channel=50)
     flatted = tf.layers.flatten(output)
 
     res = block.fc_layer(flatted, 512, 'fc1', relu=True)
-    res = block.fc_layer(res, 512, 'fc2', relu=True)
+    # res = block.fc_layer(res, 512, 'fc2', relu=True)
     out_layer = tf.layers.dense(res, 2)
     pred = tf.nn.softmax(out_layer)
     loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_hat, logits=out_layer)
@@ -99,7 +106,7 @@ if __name__ == '__main__':
             print(type(context_train))
             for i in range(l):
                 steps += 1
-                loss_value, _, acc = sess.run([loss, opt, accuracy], feed_dict={input_context: context_train[L[i*batch_size:(i+1)*batch_size]],
+                loss_value, _, acc, pred_value = sess.run([loss, opt, accuracy, pred], feed_dict={input_context: context_train[L[i*batch_size:(i+1)*batch_size]],
                                                  input_question: question_train[L[i*batch_size: (i+1)*batch_size]],
                                                  input_answer: answer_train[L[i*batch_size: (i+1)*batch_size]],
                                                  y_hat: labels[L[i*batch_size: (i+1)*batch_size]]})

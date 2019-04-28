@@ -108,7 +108,7 @@ def layer_dropout(inputs, residual, dropout):
     return tf.cond(pred, lambda: residual, lambda: tf.nn.dropout(inputs, 1.0 - dropout) + residual)
 
 def mask_layer(parent, mask, mod):
-    if not mask:
+    if mask==None:
         return parent
     mask = tf.cast(mask, tf.float32)
     if mod=='mul':
@@ -132,13 +132,14 @@ def multihead_attention(parent, num_head, size_per_head, name, mask=None, bias=T
         if bias:
             b = tf.get_variable("bias", [L], initializer=tf.zeros_initializer())
             score += b
+        mask = tf.reshape(mask, [mask.shape[0], 1, 1, mask.shape[-1]])
         score = mask_layer(score, mask, 'add')
         score = tf.nn.softmax(score)
         output = tf.matmul(score, v)
         output = tf.transpose(output, [0, 2, 1, 3])
         output = tf.reshape(output, [-1, L, num_head*size_per_head])
         output = conv_layer(output, 1, C, 1, 'reshape')
-        return mask_layer(output, mask, 'mul')
+        return output
 
 def self_attention_layer(parent, kernel_size, output_channel, stride, num_head, size_per_head, name, mask=None, dropout=0.0, reuse=True):
     with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
