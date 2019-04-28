@@ -198,7 +198,7 @@ def CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, scope, dropout=0.0):
         # attention_outputs = [c, c2q, c * c2q, c * q2c]
         return c2q, c * c2q, c * q2c
 
-    
+
 def CQ_attention_layer_with_mask(c, q, N, c_maxlen, q_maxlen, context_mask, question_mask, scope, dropout=0.0):
     '''
     Modified from https://github.com/NLPLearn/QANet/blob/master/model.py
@@ -258,7 +258,7 @@ def CQA_attention(c, q, a, N, output_channel, c_maxlen, q_maxlen, a_maxlen, drop
 
 def CQA_attention_v2(c, q, a, N, output_channel, c_maxlen, q_maxlen, a_maxlen, dropout=0.0):
     c2q, c_c2q, c_q2c = CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, scope='CQ_attention', dropout=dropout)
-    a2c, a_a2c, a_c2a = CQ_attention_layer(a, c, N, a_maxlen, c_maxlen, scope='AC_attention', dropout=dropout)
+    a2c, a_a2c, a_c2a = CQ_attention_layer(a, c_c2q, N, a_maxlen, c_maxlen, scope='AC_attention', dropout=dropout)
     attention_output = [a, a2c, a_a2c, a_c2a]
     attention_output = tf.concat(attention_output, axis=-1)
     output = conv_layer(attention_output, 1, output_channel, 1, 'cqa_output')
