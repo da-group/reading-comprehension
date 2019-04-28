@@ -196,7 +196,7 @@ if __name__ == '__main__':
     output = encoder_block(p,
                            num_blocks=2,
                            num_conv_layers=3,
-                           kernel_size=3,
+                           kernel_size=7,
                            stride=1,
                            num_d=1,
                            num_p=128,

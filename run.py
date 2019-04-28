@@ -26,10 +26,10 @@ if __name__ == '__main__':
     y_hat = tf.placeholder(tf.float32, [None, 2])
 
     encoder_context = block.encoder_block(input_context, num_blocks=2,
-                           num_conv_layers=3,
-                           kernel_size=3,
+                           num_conv_layers=2,
+                           kernel_size=7,
                            stride=1,
-                           num_d=128,
+                           num_d=1,
                            num_p=50,
                            output_channel=50,
                            num_head=8,
@@ -38,10 +38,10 @@ if __name__ == '__main__':
                            name='context')
 
     encoder_question =block.encoder_block(input_question, num_blocks=2,
-                           num_conv_layers=3,
-                           kernel_size=3,
+                           num_conv_layers=2,
+                           kernel_size=7,
                            stride=1,
-                           num_d=128,
+                           num_d=1,
                            num_p=50,
                            output_channel=50,
                            num_head=8,
@@ -50,10 +50,10 @@ if __name__ == '__main__':
                            name='question')
 
     encoder_answer = block.encoder_block(input_answer, num_blocks=2,
-                           num_conv_layers=3,
-                           kernel_size=3,
+                           num_conv_layers=2,
+                           kernel_size=7,
                            stride=1,
-                           num_d=128,
+                           num_d=1,
                            num_p=50,
                            output_channel=50,
                            num_head=8,
@@ -61,16 +61,18 @@ if __name__ == '__main__':
                            dropout=0.3,
                            name='answer')
 
-    output = CQA_attention.CQA_attention(encoder_context, encoder_question, encoder_answer, batch_size,
+    output = CQA_attention.CQA_attention(encoder_answer, encoder_question, encoder_context, batch_size,
                                          c_maxlen=c_len, q_maxlen=q_len, a_maxlen=a_len, output_channel=50)
     flatted = tf.layers.flatten(output)
 
-    res = block.fc_layer(flatted, 50, 'fc1', relu=True)
+    res = block.fc_layer(flatted, 512, 'fc1', relu=True)
+    res = block.fc_layer(res, 512, 'fc2', relu=True)
     out_layer = tf.layers.dense(res, 2)
-    loss = tf.nn.softmax_cross_entropy_with_logits(labels=y_hat, logits=out_layer)
+    pred = tf.nn.softmax(out_layer)
+    loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_hat, logits=out_layer)
     loss = tf.reduce_mean(loss)
-    opt = tf.train.AdamOptimizer(0.01).minimize(loss)
-    correct_prediction = tf.equal(tf.argmax(y_hat, 1), tf.argmax(out_layer, 1))
+    opt = tf.train.AdamOptimizer(0.001).minimize(loss)
+    correct_prediction = tf.equal(tf.argmax(y_hat, 1), tf.argmax(pred, 1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
 
     with tf.Session() as sess:
@@ -82,17 +84,29 @@ if __name__ == '__main__':
         y_loss = []
         y_acc = []
 
-        for j in range(1):
+        steps = 0
+
+        context_train = np.array(context_train)
+        question_train = np.array(question_train)
+        answer_train = np.array(answer_train)
+        labels = np.array(labels)
+
+        for j in range(100):
             a_mean = 0
+            L = np.arange(len(labels))
+            np.random.shuffle(L)
+            print(L)
+            print(type(context_train))
             for i in range(l):
-                loss_value, _, acc = sess.run([loss, opt, accuracy], feed_dict={input_context: context_train[i*batch_size:(i+1)*batch_size],
-                                                 input_question: question_train[i*batch_size: (i+1)*batch_size],
-                                                 input_answer: answer_train[i*batch_size: (i+1)*batch_size],
-                                                 y_hat: labels[i*batch_size: (i+1)*batch_size]})
+                steps += 1
+                loss_value, _, acc = sess.run([loss, opt, accuracy], feed_dict={input_context: context_train[L[i*batch_size:(i+1)*batch_size]],
+                                                 input_question: question_train[L[i*batch_size: (i+1)*batch_size]],
+                                                 input_answer: answer_train[L[i*batch_size: (i+1)*batch_size]],
+                                                 y_hat: labels[L[i*batch_size: (i+1)*batch_size]]})
                 a_mean += acc
-                if i % 20 == 0:
-                    print('Step: ', j, ' Loss: ', loss_value, '  Accuracy: ', a_mean/l)
-                    x.append(j)
+                if steps % 1 == 0:
+                    print('Step: ', steps, ' Loss: ', loss_value, '  Accuracy: ', a_mean/(i+1))
+                    x.append(steps)
                     y_acc.append(a_mean/l)
                     y_loss.append(loss_value)
                     f.write(str(a_mean/l)+' '+str(loss_value)+'\n')

@@ -4,7 +4,7 @@ import numpy as np
 
 train_file = 'splitv2/train.json'
 fname = 'embedding'
-e_file = 'glove.6B.50d.txt'
+e_file = 'glove.6b/glove.6B.50d.txt'
 
 def get_embedding(word_file, emb_file, vec_size, part):
     words = json.load(open(word_file, 'r'))
