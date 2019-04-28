@@ -198,7 +198,32 @@ def CQ_attention_layer(c, q, N, c_maxlen, q_maxlen, scope, dropout=0.0):
         # attention_outputs = [c, c2q, c * c2q, c * q2c]
         return c2q, c * c2q, c * q2c
 
+    
+def CQ_attention_layer_with_mask(c, q, N, c_maxlen, q_maxlen, context_mask, question_mask, scope, dropout=0.0):
+    '''
+    Modified from https://github.com/NLPLearn/QANet/blob/master/model.py
+    :param c: context, shape = (batch_size, context_max_sentence_length, vector_length)  e.g.(32, 80, 50)
+    :param q: question, shape = (batch_size, question_max_sentence_length, vector_length)  e.g.(32, 40, 50)
+    :param N: int, batch_size
+    :param c_maxlen: int, max_sentence_length of context
+    :param q_maxlen: int, max_sentence_length of question
+    :param context_mask: context mask, shape = (batch_size, context_max_sentence_length,) e.g.(32,80)
+    :param question_mask: question mask, shape = (batch_size, question_max_sentence_length,) e.g.(32,40)
+    :return: attention tensor, shape = (batch_size, context_max_sentence_length, 4*vector_length)   e.g.(32, 80, 200)
+    '''
+    with tf.variable_scope(scope):
+        #context_mask = tf.cast(tf.reduce_sum(c, -1), tf.bool)
+        mask_c = tf.expand_dims(context_mask, 2)
+        #question_mask = tf.cast(tf.reduce_sum(q, -1), tf.bool)
+        mask_q = tf.expand_dims(question_mask, 1)
 
+        S = optimized_trilinear_for_attention([c, q], c_maxlen, q_maxlen, input_keep_prob=1.0 - dropout)
+        S_ = tf.nn.softmax(mask_logits(S, mask=mask_q))
+        S_T = tf.transpose(tf.nn.softmax(mask_logits(S, mask=mask_c), dim=1), (0, 2, 1))
+
+        c2q = tf.matmul(S_, q)
+        q2c = tf.matmul(tf.matmul(S_, S_T), c)
+        return c2q, c * c2q, c * q2c
 
 
 # Compute the attention between Context, Question and Answer
