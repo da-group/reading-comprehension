@@ -45,7 +45,6 @@ def convert(file_name, save_name):
                 lcs[i].append([0 for _ in range(ch_maxlen)])
     C = np.array(lcs)[:, :200, :20]
 
-
     lqs = []
     q_maxlen = 0
     qh_maxlen = 0
@@ -98,6 +97,8 @@ def convert(file_name, save_name):
         las.append(la)
     print(a_maxlen)
     print(ah_maxlen)
+    print(len(characters))
+    exit(0)
 
     for i in range(len(las)):
         for j in range(a_maxlen):

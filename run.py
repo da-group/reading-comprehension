@@ -1,24 +1,35 @@
 import tensorflow as tf
 import numpy as np
+import json
 
 import CQA_attention
 import gen_vectors
 import block
 import matplotlib.pyplot as plt
 
+from encoding_layer import embedding_layer, encoder_layer
+
 import warnings
 warnings.filterwarnings('ignore')
 
 batch_size = 64
 max_step = 20
-c_len = 192
-a_len = 48
-q_len = 89
+c_len = 200
+a_len = 50
+q_len = 90
+ch_len = 20
+
 
 if __name__ == '__main__':
     context_train, _ = gen_vectors.trans_sentences(c_len, 50, 'contexts')
     question_train, _ = gen_vectors.trans_sentences(q_len, 50, 'questions')
     answer_train, labels = gen_vectors.trans_sentences(a_len, 50, 'answers')
+
+    train_c = json.load(open('./splitv2/train_c.json', 'r'))
+    context_c = train_c['contexts']
+    question_c = train_c['questions']
+    answer_c = train_c['answers']
+
 
     input_context = tf.placeholder(tf.float32, [batch_size, c_len, 50])
     input_question = tf.placeholder(tf.float32, [batch_size, q_len, 50])
@@ -28,6 +39,24 @@ if __name__ == '__main__':
     context_mask = tf.cast(tf.reduce_sum(input_context, -1), tf.bool)
     question_mask = tf.cast(tf.reduce_sum(input_question, -1), tf.bool)
     answer_mask = tf.cast(tf.reduce_sum(input_answer, -1), tf.bool)
+
+    # character operation
+    context_ch = tf.placeholder(tf.float32, [batch_size, c_len, ch_len])
+    question_ch = tf.placeholder(tf.float32, [batch_size, q_len, ch_len])
+    answer_ch = tf.placeholder(tf.float32, [batch_size, a_len, ch_len])
+
+    context_ch = tf.reshape(embedding_layer(context_ch, 95, 50, 'character_embedding'), [batch_size*c_len, ch_len, 50])
+    question_ch = tf.reshape(embedding_layer(question_ch, 95, 50, 'character_embedding'), [batch_size*q_len, ch_len, 50])
+    answer_ch = tf.reshape(embedding_layer(answer_ch, 95, 50, 'character_embedding'), [batch_size*a_len, ch_len, 50])
+
+    context_ch = tf.reduce_max(block.conv_layer(context_ch, 5, 50, 1, 'ch_conv', relu=True), axis=1)
+    question_ch = tf.reduce_max(block.conv_layer(question_ch, 5, 50, 1, 'ch_conv', relu=True), axis=1)
+    answer_ch = tf.reduce_max(block.conv_layer(answer_ch, 5, 50, 1, 'ch_conv', relu=True), axis=1)
+
+    context_ch = tf.reshape(context_ch, [batch_size, c_len, 50])
+    question_ch = tf.reshape(question_ch, [batch_size, q_len, 50])
+    answer_ch = tf.reshape(answer_ch, [batch_size, a_len, 50])
+
 
     encoder_context = block.encoder_block(input_context, num_blocks=2,
                            num_conv_layers=2,
