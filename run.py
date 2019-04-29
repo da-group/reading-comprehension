@@ -15,8 +15,8 @@ warnings.filterwarnings('ignore')
 batch_size = 64
 max_step = 20
 c_len = 200
-a_len = 50
-q_len = 90
+a_len = 90
+q_len = 50
 ch_len = 20
 
 
