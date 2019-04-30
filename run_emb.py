@@ -7,17 +7,17 @@ import gen_vectors
 import block
 import matplotlib.pyplot as plt
 
-from encoder_layer import encoder_layer
+from encoder_layer import encoder_layer, embedding_layer
 
 import warnings
 warnings.filterwarnings('ignore')
 
 batch_size = 64
 max_step = 20
-c_len = 192
-a_len = 48
-q_len = 89
-train_file = 'splitv2/train.json'
+c_len = 200
+q_len = 50
+a_len = 90
+train_file = 'splitv2/train_w.json'
 
 if __name__ == '__main__':
     # context_train, _ = gen_vectors.trans_sentences(c_len, 50, 'contexts')
@@ -29,10 +29,14 @@ if __name__ == '__main__':
     input_answer = tf.placeholder(tf.int32, [batch_size, a_len])
     y_hat = tf.placeholder(tf.float32, [batch_size, 2])
 
+    context_mask = tf.cast(input_context, tf.bool)
+    question_mask = tf.cast(input_question, tf.bool)
+    answer_mask = tf.cast(input_answer, tf.bool)
+
     # embedding
-    input_context = encoder_layer(input_context, np.array(json.load(open('embedding_contexts.json'))))
-    input_question = encoder_layer(input_question, np.array(json.load(open('embedding_questions.json'))))
-    input_answer = encoder_layer(input_answer, np.array(json.load(open('embedding_answers.json'))))
+    context = embedding_layer(input_context, 18129, 50, 'word_embedding')
+    question = embedding_layer(input_question, 18129, 50, 'word_embedding')
+    answer = embedding_layer(input_answer, 18129, 50, 'word_embedding')
 
     print(input_context.shape)
     print(input_question.shape)
@@ -41,11 +45,7 @@ if __name__ == '__main__':
     # input_question = tf.reshape(tf.nn.embedding_lookup(np.array(question_train), input_question), [batch_size*q_len, 50, 64])
     # input_answer = tf.reshape(tf.nn.embedding_lookup(np.array(answer_train), input_answer), [batch_size*a_len, 50, 64])
 
-    context_mask = tf.cast(tf.reduce_sum(input_context, -1), tf.bool)
-    question_mask = tf.cast(tf.reduce_sum(input_question, -1), tf.bool)
-    answer_mask = tf.cast(tf.reduce_sum(input_answer, -1), tf.bool)
-
-    encoder_context = block.encoder_block(input_context, num_blocks=2,
+    encoder_context = block.encoder_block(context, num_blocks=2,
                            num_conv_layers=2,
                            kernel_size=3,
                            stride=1,
@@ -58,7 +58,7 @@ if __name__ == '__main__':
                            name='context',
                            mask = context_mask)
 
-    encoder_question =block.encoder_block(input_question, num_blocks=2,
+    encoder_question =block.encoder_block(question, num_blocks=2,
                            num_conv_layers=2,
                            kernel_size=3,
                            stride=1,
@@ -71,7 +71,7 @@ if __name__ == '__main__':
                            name='question',
                            mask = question_mask)
 
-    encoder_answer = block.encoder_block(input_answer, num_blocks=2,
+    encoder_answer = block.encoder_block(answer, num_blocks=2,
                            num_conv_layers=2,
                            kernel_size=3,
                            stride=1,
@@ -85,7 +85,9 @@ if __name__ == '__main__':
                            mask = answer_mask)
 
     output = CQA_attention.CQA_attention(encoder_context, encoder_question, encoder_answer, batch_size,
-                                         c_maxlen=c_len, q_maxlen=q_len, a_maxlen=a_len, output_channel=50)
+                                         c_maxlen=c_len, q_maxlen=q_len, a_maxlen=a_len,
+                                         c_mask=context_mask, q_mask=question_mask, a_mask=answer_mask,
+                                         output_channel=50)
     flatted = tf.layers.flatten(output)
 
     res = block.fc_layer(flatted, 512, 'fc1', relu=True)
@@ -136,12 +138,12 @@ if __name__ == '__main__':
                                                  input_answer: answer_train[i*batch_size: (i+1)*batch_size],
                                                  y_hat: labels[i*batch_size: (i+1)*batch_size]})
                 a_mean += acc
-            if j % 1 == 0:
-                print('Step: ', steps, ' Loss: ', loss_value, '  Accuracy: ', a_mean/l)
-                x.append(steps)
-                y_acc.append(a_mean/l)
-                y_loss.append(loss_value)
-                f.write(str(a_mean/l)+' '+str(loss_value)+'\n')
+                if i % 1 == 0:
+                    print('Step: ', steps, ' Loss: ', loss_value, '  Accuracy: ', acc)
+                    x.append(steps)
+                    y_acc.append(a_mean/l)
+                    y_loss.append(loss_value)
+                    f.write(str(a_mean/l)+' '+str(loss_value)+'\n')
 
         plt.plot(x, y_acc)
         plt.xlabel('step')
