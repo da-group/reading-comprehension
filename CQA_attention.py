@@ -253,7 +253,7 @@ def CQA_attention(c, q, a, N, output_channel, c_maxlen, q_maxlen, a_maxlen, c_ma
     # e.g. cq_atten_outputs.shape = (32, 80, 200)
     # use conv_layer to transform above shape(32, 80, 200) to shape(32, 80, 50) as following input
     c2a, c_c2a, c_a2c = CQ_attention_layer_with_mask(c, a, N, c_maxlen, a_maxlen, c_mask, a_mask, scope='CA_attention', dropout=dropout)
-    attention_outputs = [c, c2q, c2a, c_c2q, c_q2c, c_c2a, c_a2c]
+    attention_outputs = [c, c2q, c2a]
     attention_outputs = tf.concat(attention_outputs, axis=-1)
     outputs = conv_layer(attention_outputs, 1, output_channel, 1, 'cqa_output')
     return outputs
