@@ -85,4 +85,5 @@ def convert(file_name, save_name):
 
 
 if __name__ == "__main__":
-    convert('./splitv2/train.json', './''./splitv2/train_w.json')
+    convert('./splitv2/train.json', './''./splitv2/train.json')
+    convert('./splitv2/dev.json', './''./splitv2/dev.json')
