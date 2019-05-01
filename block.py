@@ -81,6 +81,17 @@ def fc_layer(parent, output_channel, name, bias = True, relu = False, reuse=True
         else:
             return fc_with_bias
 
+def highway(parent, kernel_size, output_channel, num_layers=2, name="highway", dropout=0.0):
+    with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
+        if parent.shape.as_list()[-1]!=output_channel:
+            parent = conv_layer(parent, 1, output_channel, 1, 'projection')
+        for i in range(num_layers):
+            T = tf.sigmoid(conv_layer(parent, kernel_size, output_channel, 1, 'conv'+np.str(i), relu=False))
+            H = conv_layer(parent, kernel_size, output_channel, 1, 'conv'+np.str(i), relu=True)
+            H = tf.nn.dropout(H, 1.0 - dropout)
+            parent = H * T + parent * (1.0 - T)
+        return parent
+
 def layer_norm_compute_python(x, epsilon, scale, bias):
     """Layer norm raw computation."""
     mean = tf.reduce_mean(x, axis=[-1], keepdims=True)

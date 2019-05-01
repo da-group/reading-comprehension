@@ -60,6 +60,10 @@ if __name__ == '__main__':
     question = tf.concat([question, question_ch], axis=-1)
     answer = tf.concat([answer, answer_ch], axis=-1)
 
+    context = block.highway(context, 1, 50, name='highway', dropout=0.3)
+    question = block.highway(question, 1, 50, name='highway', dropout=0.3)
+    answer = block.highway(answer, 1, 50, name='highway', dropout=0.3)
+
     print(context.shape)
     print(question.shape)
     print(answer.shape)
