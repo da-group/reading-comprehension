@@ -1,4 +1,5 @@
 import tensorflow as tf
+import sklearn
 import numpy as np
 import json
 
@@ -18,6 +19,12 @@ c_len = 200
 q_len = 50
 a_len = 90
 train_file = 'splitv2/train_w.json'
+
+# def confusion_matrix(prob, label):
+#     labels = tf.argmax(label, axis = -1)
+#     probs = tf.argmax(prob, axis = -1)
+#     return tf.confusion_matrix(labels, probs, num_classes =2)
+
 
 if __name__ == '__main__':
     # context_train, _ = gen_vectors.trans_sentences(c_len, 50, 'contexts')
@@ -84,7 +91,7 @@ if __name__ == '__main__':
                            name='answer',
                            mask = answer_mask)
 
-    output = CQA_attention.CQA_attention(encoder_context, encoder_question, encoder_answer, batch_size,
+    output = CQA_attention.CQA_attention_v4(encoder_context, encoder_question, encoder_answer, batch_size,
                                          c_maxlen=c_len, q_maxlen=q_len, a_maxlen=a_len,
                                          c_mask=context_mask, q_mask=question_mask, a_mask=answer_mask,
                                          output_channel=50)
@@ -93,15 +100,24 @@ if __name__ == '__main__':
     res = block.fc_layer(flatted, 512, 'fc1', relu=True)
     # res = block.fc_layer(res, 512, 'fc2', relu=True)
     out_layer = tf.layers.dense(res, 2)
-    pred = tf.nn.softmax(out_layer)
+    prob = tf.nn.softmax(out_layer)
+    pred = tf.argmax(prob, 1)
+    labels_bool = tf.argmax(y_hat, 1)
+
+    correct_prediction = tf.equal(labels_bool, pred)
+    accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+
+    # precision = tf.metrics.precision(labels_bool, pred)[0]
+    # recall = tf.metrics.recall(labels_bool, pred)[0]
+    # f1 = 2 * precision*recall/(precision+recall)
+    
     loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_hat, logits=out_layer)
     loss = tf.reduce_mean(loss)
     opt = tf.train.AdamOptimizer(0.001).minimize(loss)
-    correct_prediction = tf.equal(tf.argmax(y_hat, 1), tf.argmax(pred, 1))
-    accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
 
     with tf.Session() as sess:
         f = open('result_text.txt', 'w')
+        saver = tf.Saver()
         sess.run(tf.global_variables_initializer())
         train = json.load(open(train_file, 'r'))
         labels = []
@@ -117,6 +133,7 @@ if __name__ == '__main__':
         x = []
         y_loss = []
         y_acc = []
+        y_f1 = []
 
         steps = 0
 
@@ -125,33 +142,51 @@ if __name__ == '__main__':
         answer_train = train['answers']
 
         # labels = np.concatenate(labels, axis=0)
-
-        for j in range(30):
-            a_mean = 0
+        max_acc=0.0
+        for j in range(100):
+            a_mean = 0.0
+            f1_mean = 0.0
             L = np.arange(len(labels))
             np.random.shuffle(L)
             # print(L)
             for i in range(l):
                 steps += 1
-                loss_value, _, acc, pred_value = sess.run([loss, opt, accuracy, pred], feed_dict={input_context: context_train[i*batch_size:(i+1)*batch_size],
+                loss_value, _, acc, pred_value, labels_value = sess.run([loss, opt, accuracy, pred, labels_bool], feed_dict={input_context: context_train[i*batch_size:(i+1)*batch_size],
                                                  input_question: question_train[i*batch_size: (i+1)*batch_size],
                                                  input_answer: answer_train[i*batch_size: (i+1)*batch_size],
-                                                 y_hat: labels[i*batch_size: (i+1)*batch_size]})
+                                                 y_hat: labels[i*batch_size:(i + 1)*batch_size]})
+                f1 = sklearn.metrics.f1_score(labels_value, pred_value)
+                
                 a_mean += acc
-                if i % 1 == 0:
-                    print('Step: ', steps, ' Loss: ', loss_value, '  Accuracy: ', acc)
-                    x.append(steps)
-                    y_acc.append(a_mean/l)
-                    y_loss.append(loss_value)
-                    f.write(str(a_mean/l)+' '+str(loss_value)+'\n')
+                f1_mean += f1
+                #if i % 10 == 0:
+            print('Step: ', steps, ' Loss: ', loss_value, '  Accuracy: ', a_mean/(l), '  F1 score: ', f1_mean/l)
+            x.append(steps)
+            y_acc.append(a_mean / l)
+            y_f1.append(f1_mean / l)
+            y_loss.append(loss_value)
+            f.write(str(a_mean / l) + ' ' + str(loss_value) + '\n')
 
-        plt.plot(x, y_acc)
-        plt.xlabel('step')
-        plt.ylabel('accuracy')
-        plt.savefig('acc.png')
-        plt.plot(x, y_loss)
-        plt.xlabel('step')
-        plt.ylabel('loss')
-        plt.savefig('loss.png')
+            if a_mean/l >= max_acc:
+                saver.save(sess, 'model/best_model')
+                        
+            plt.plot(x, y_acc)
+            plt.xlabel('step')
+            plt.ylabel('accuracy')
+            plt.savefig('acc.png')
+            plt.cla()
+
+            plt.plot(x, y_f1)
+            plt.xlabel('step')
+            plt.ylabel('f1 score')
+            plt.savefig('f1.png')
+            plt.cla()
+
+            plt.plot(x, y_loss)
+            plt.xlabel('step')
+            plt.ylabel('loss')
+            plt.savefig('loss.png')
+            plt.cla()
+
         f.close()
 
