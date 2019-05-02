@@ -92,7 +92,7 @@ if __name__ == '__main__':
                            name='answer',
                            mask = answer_mask)
 
-    output = CQA_attention.CQA_attention_v4(encoder_context, encoder_question, encoder_answer, batch_size,
+    output = CQA_attention.CQA_attention(encoder_context, encoder_question, encoder_answer, batch_size,
                                          c_maxlen=c_len, q_maxlen=q_len, a_maxlen=a_len,
                                          c_mask=context_mask, q_mask=question_mask, a_mask=answer_mask,
                                          output_channel=50)
