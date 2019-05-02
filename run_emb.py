@@ -19,6 +19,7 @@ c_len = 200
 q_len = 50
 a_len = 90
 train_file = 'splitv2/train_w.json'
+test_file = 'splitv2/dev_w.json'
 
 # def confusion_matrix(prob, label):
 #     labels = tf.argmax(label, axis = -1)
@@ -113,14 +114,18 @@ if __name__ == '__main__':
     
     loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_hat, logits=out_layer)
     loss = tf.reduce_mean(loss)
-    opt = tf.train.AdamOptimizer(0.001).minimize(loss)
+    opt = tf.train.AdamOptimizer(0.0005).minimize(loss)
 
     with tf.Session() as sess:
         f = open('result_text.txt', 'w')
-        saver = tf.Saver()
+        model_name = 'model/best_model'
+        saver = tf.train.Saver()
+        # saver.restore(sess, model_name)
         sess.run(tf.global_variables_initializer())
         train = json.load(open(train_file, 'r'))
+        test = json.load(open(test_file, 'r'))
         labels = []
+        labels_test = []
 
         for res in train['results']:
             if not res:
@@ -129,7 +134,16 @@ if __name__ == '__main__':
                 labels.append([0.0, 1.0])
         labels = np.array(labels, dtype=float)
 
-        l = len(labels)//batch_size
+        for res in test['results']:
+            if not res:
+                labels_test.append([1.0, 0.0])
+            else:
+                labels_test.append([0.0, 1.0])
+        labels_test = np.array(labels_test, dtype=float)
+        print(labels_test.shape)
+
+        l = len(labels) // batch_size
+        lt = len(labels_test) // batch_size
         x = []
         y_loss = []
         y_acc = []
@@ -141,9 +155,13 @@ if __name__ == '__main__':
         question_train = train['questions']
         answer_train = train['answers']
 
+        context_test = test['contexts']
+        question_test = test['questions']
+        answer_test = test['answers']
+
         # labels = np.concatenate(labels, axis=0)
         max_acc=0.0
-        for j in range(100):
+        for j in range(30):
             a_mean = 0.0
             f1_mean = 0.0
             L = np.arange(len(labels))
@@ -167,9 +185,24 @@ if __name__ == '__main__':
             y_loss.append(loss_value)
             f.write(str(a_mean / l) + ' ' + str(loss_value) + '\n')
 
-            if a_mean/l >= max_acc:
-                saver.save(sess, 'model/best_model')
-                        
+
+
+            if j % 1 == 0:
+                at_mean = 0.0
+                f1t_mean = 0.0
+                for i in range(lt):
+                    acc_t, pred_t, labels_t = sess.run([accuracy, pred, labels_bool], feed_dict={input_context: context_test[i*batch_size:(i+1)*batch_size],
+                                                    input_question: question_test[i*batch_size: (i+1)*batch_size],
+                                                    input_answer: answer_test[i*batch_size: (i+1)*batch_size],
+                                                    y_hat: labels_test[i*batch_size:(i + 1)*batch_size]})
+                    f1_t = sklearn.metrics.f1_score(labels_t, pred_t)
+                    at_mean += acc_t
+                    f1t_mean += f1_t
+                print('Accuracy test: ', at_mean / (lt), '  F1 score test: ', f1t_mean / lt)
+                if at_mean / lt >= max_acc:
+                    max_acc = at_mean/lt
+                    saver.save(sess, 'model/best_model')
+
             plt.plot(x, y_acc)
             plt.xlabel('step')
             plt.ylabel('accuracy')
