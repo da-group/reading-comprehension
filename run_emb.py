@@ -18,8 +18,11 @@ max_step = 20
 c_len = 200
 q_len = 50
 a_len = 90
-train_file = 'splitv2/train_w.json'
-test_file = 'splitv2/dev_w.json'
+
+dict_len = 13839
+
+train_file = 'splitv2/train_clean_w.json'
+test_file = 'splitv2/dev_clean_w.json'
 
 # def confusion_matrix(prob, label):
 #     labels = tf.argmax(label, axis = -1)
@@ -42,9 +45,9 @@ if __name__ == '__main__':
     answer_mask = tf.cast(input_answer, tf.bool)
 
     # embedding
-    context = embedding_layer(input_context, 18129, 50, 'word_embedding')
-    question = embedding_layer(input_question, 18129, 50, 'word_embedding')
-    answer = embedding_layer(input_answer, 18129, 50, 'word_embedding')
+    context = embedding_layer(input_context, dict_len, 50, 'word_embedding')
+    question = embedding_layer(input_question, dict_len, 50, 'word_embedding')
+    answer = embedding_layer(input_answer, dict_len, 50, 'word_embedding')
 
     print(input_context.shape)
     print(input_question.shape)
@@ -111,7 +114,7 @@ if __name__ == '__main__':
     # precision = tf.metrics.precision(labels_bool, pred)[0]
     # recall = tf.metrics.recall(labels_bool, pred)[0]
     # f1 = 2 * precision*recall/(precision+recall)
-    
+
     loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_hat, logits=out_layer)
     loss = tf.reduce_mean(loss)
     opt = tf.train.AdamOptimizer(0.0005).minimize(loss)
@@ -174,7 +177,7 @@ if __name__ == '__main__':
                                                  input_answer: answer_train[i*batch_size: (i+1)*batch_size],
                                                  y_hat: labels[i*batch_size:(i + 1)*batch_size]})
                 f1 = sklearn.metrics.f1_score(labels_value, pred_value)
-                
+
                 a_mean += acc
                 f1_mean += f1
                 #if i % 10 == 0:
